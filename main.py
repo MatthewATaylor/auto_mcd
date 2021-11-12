@@ -1,11 +1,14 @@
 import os
 import time
+from PIL import Image
+import requests
+from io import BytesIO
 
 import selenium.common.exceptions
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
-
+import numpy as np
 
 menu_categories = {
     "sweets_treats": "Sweets & Treats",
@@ -119,10 +122,22 @@ def get_menu_items(driver):
         menu_items[cat] = get_menu_items_from_category(driver, cat)
     return menu_items
 
+def item_available_at_midnight(url):
+    response = requests.get(url)
+    image = Image.open(BytesIO(response.content))
+    image = np.array(image)
+    avg_banner_color = np.array([244, 211, 130])
+    average_color = np.mean(np.mean(image[:9, :, :], axis=0), axis=0)
+    return not np.all(np.abs(average_color - avg_banner_color) <= 1e1)
 
-def item_available_at_midnight(img_url):
-    return True
+not_aval_url = 'https://d1ralsognjng37.cloudfront.net/4bd982b6-e7f1-4b24-a9fc-2b41bf4c5307.jpeg'
+aval_url = 'https://d1ralsognjng37.cloudfront.net/830e4b67-54d2-43c8-863f-70751ed67029.jpeg'
+assert not item_available_at_midnight(not_aval_url), ValueError("Something's wrong with item_available_at_midnight!")
+assert item_available_at_midnight(aval_url), ValueError("Something's wrong with item_available_at_midnight!")
 
+def get_menu_categories(driver):
+    list_elements = driver.find_elements(By.CLASS_NAME, 'ex')
+    return [elm.text for elm in list_elements]
 
 def main():
     driver = webdriver.Firefox()
@@ -131,10 +146,12 @@ def main():
     validate_address(driver)
     exit_second_dialog(driver)
 
-    menu_items = get_menu_items(driver)
-    for cat in menu_items:
-        print(menu_items[cat])
-
+    # menu_items = get_menu_items(driver)
+    # for cat in menu_items:
+    #     print(menu_items[cat])
+    menu_cats = get_menu_categories(driver)
+    for cat in menu_cats:
+        print(cat)
 
 if __name__ == '__main__':
     main()
