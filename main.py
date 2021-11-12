@@ -1,5 +1,4 @@
-import os
-import time
+import random
 
 import selenium.common.exceptions
 from selenium import webdriver
@@ -31,7 +30,7 @@ def str_is_dollar_amt(s):
 
 
 def str_is_cal_count(s):
-    return " Cal." in s and str_is_num(s.removesuffix(" Cal."))
+    return " Cal." in s
 
 
 def str_is_limit(s):
@@ -120,6 +119,14 @@ def get_menu_items(driver):
     return menu_items
 
 
+def ungroup_categories(menu_items):
+    """Return menu_items reformatted into a single list of items"""
+    new_menu_items = []
+    for cat in menu_items:
+        new_menu_items += menu_items[cat]
+    return new_menu_items
+
+
 def item_available_at_midnight(img_url):
     return True
 
@@ -134,6 +141,15 @@ def main():
     menu_items = get_menu_items(driver)
     for cat in menu_items:
         print(menu_items[cat])
+
+    menu_items = ungroup_categories(menu_items)
+    random.shuffle(menu_items)
+
+    rand_item = menu_items[0]
+    print(rand_item["name"])
+    scroll_to_element(driver, rand_item["element"])
+    driver.execute_script("window.scrollBy(0, -134);")  # Uncover item from top navigation banner
+    rand_item["element"].click()
 
 
 if __name__ == '__main__':
