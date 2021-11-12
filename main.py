@@ -1,11 +1,16 @@
 import random
 
+from PIL import Image
+import requests
+from io import BytesIO
 import selenium.common.exceptions
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
+import numpy as np
 
 
+# TODO replace this with scraped category list
 menu_categories = {
     "sweets_treats": "Sweets & Treats",
     "condiments": "Condiments",
@@ -119,16 +124,27 @@ def get_menu_items(driver):
     return menu_items
 
 
+def item_available_at_midnight(url):
+    response = requests.get(url)
+    image = Image.open(BytesIO(response.content))
+    image = np.array(image)
+    avg_banner_color = np.array([244, 211, 130])
+    average_color = np.mean(np.mean(image[:9, :, :], axis=0), axis=0)
+    return not np.all(np.abs(average_color - avg_banner_color) <= 1e1)
+
+
+def get_menu_categories(driver):
+    # Hmm "ex" may be a randomized class name
+    list_elements = driver.find_elements(By.CLASS_NAME, 'ex')
+    return [elm.text for elm in list_elements]
+
+
 def ungroup_categories(menu_items):
     """Return menu_items reformatted into a single list of items"""
     new_menu_items = []
     for cat in menu_items:
         new_menu_items += menu_items[cat]
     return new_menu_items
-
-
-def item_available_at_midnight(img_url):
-    return True
 
 
 def main():
