@@ -39,6 +39,7 @@ def str_is_limit(s):
 
 
 def validate_address(driver):
+    """Fill out the initial address validation popup"""
     address_input = driver.find_element(By.ID, "location-typeahead-location-manager-input")
     address_input.send_keys("3 Ames st. Cambridge MA")
     while True:
@@ -57,7 +58,44 @@ def exit_second_dialog(driver):
         close_buttons[0].click()
 
 
+def scroll_to_element(driver, element):
+    try:
+        driver.execute_script("arguments[0].scrollIntoView();", element)
+    except selenium.common.exceptions.JavascriptException:
+        print("NOTE: Unable to scroll to element")
+
+
+def scan_item_info(menu_item, all_item_info):
+    """Get info about the item from the all_item_info divs, and add it to the menu_item dict"""
+    try:
+        for item_info in all_item_info:  # Look through each div without a child element
+            item_info_str = item_info.text
+            if len(item_info_str) > 0 and not str_is_cal_count(item_info_str):
+                if str_is_dollar_amt(item_info_str):
+                    menu_item["price"] = float(item_info_str[1:])
+                elif str_is_limit(item_info_str):
+                    menu_item["limit"] = int(item_info_str.removeprefix("Limit of "))
+                else:
+                    menu_item["name"] = item_info_str
+    except selenium.common.exceptions.StaleElementReferenceException:
+        # Scrolling makes some divs become stale
+        print("NOTE: Stale element reference")
+
+
+def finalize_menu_item(menu_item, category_item_list):
+    """Add final info to the menu_item dict, where category_item_list is the root item element"""
+    if "limit" not in menu_item:
+        menu_item["limit"] = 0
+    item_imgs = category_item_list.find_elements(By.XPATH, ".//picture/img")
+    if len(item_imgs) > 0:
+        menu_item["img"] = item_imgs[0].get_attribute("src")
+    else:
+        menu_item["img"] = ""
+    menu_item["element"] = category_item_list
+
+
 def get_menu_items_from_category(driver, category):
+    """Generate the category_items list, a list of dicts representing all items of the given category"""
     category_items = []
     list_elements = driver.find_elements(By.XPATH, "//li")
     for list_element in list_elements:
@@ -65,33 +103,12 @@ def get_menu_items_from_category(driver, category):
         if len(category_headings) > 0:
             category_item_lists = list_element.find_elements(By.XPATH, "./ul/li")
             for category_item_list in category_item_lists:
-                try:
-                    driver.execute_script("arguments[0].scrollIntoView();", category_item_list)
-                except selenium.common.exceptions.JavascriptException:
-                    print("NOTE: Unable to scroll to element")
                 menu_item = dict()
+                scroll_to_element(driver, category_item_list)  # Scroll to load image
                 all_item_info = category_item_list.find_elements(By.XPATH, ".//div[not(*)]")
-                try:
-                    for item_info in all_item_info:
-                        item_info_str = item_info.text
-                        if len(item_info_str) > 0 and not str_is_cal_count(item_info_str):
-                            if str_is_dollar_amt(item_info_str):
-                                menu_item["price"] = float(item_info_str[1:])
-                            elif str_is_limit(item_info_str):
-                                menu_item["limit"] = int(item_info_str.removeprefix("Limit of "))
-                            else:
-                                menu_item["name"] = item_info_str
-                except selenium.common.exceptions.StaleElementReferenceException:
-                    # Scrolling makes some divs become stale
-                    print("NOTE: Stale element reference")
-                if menu_item:
-                    if "limit" not in menu_item:
-                        menu_item["limit"] = 0
-                    item_imgs = category_item_list.find_elements(By.XPATH, ".//picture/img")
-                    if len(item_imgs) > 0:
-                        menu_item["img"] = item_imgs[0].get_attribute("src")
-                    else:
-                        menu_item["img"] = ""
+                scan_item_info(menu_item, all_item_info)
+                if menu_item:  # Info was added by scan_item_info
+                    finalize_menu_item(menu_item, category_item_list)
                     category_items.append(menu_item)
     return category_items
 
