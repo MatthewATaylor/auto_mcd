@@ -10,18 +10,6 @@ from selenium.webdriver.common.keys import Keys
 import numpy as np
 
 
-# TODO replace this with scraped category list
-menu_categories = {
-    "sweets_treats": "Sweets & Treats",
-    "condiments": "Condiments",
-    "sides": "Fries, Sides & More",
-    "mccafe": "McCafé",
-    "mccafe_bakery": "McCafé Bakery",
-    "beverages": "Beverages",
-    "individual_items": "Individual Items"
-}
-
-
 def str_is_num(s):
     try:
         float(s)
@@ -117,14 +105,14 @@ def get_menu_items_from_category(driver, category):
     return category_items
 
 
-def get_menu_items(driver):
-    menu_items = dict()
-    for cat in menu_categories.values():
-        menu_items[cat] = get_menu_items_from_category(driver, cat)
+def get_menu_items(driver, menu_categories):
+    menu_items = []
+    for cat in menu_categories:
+        menu_items += get_menu_items_from_category(driver, cat)
     return menu_items
 
 
-def item_available_at_midnight(url):
+def item_available_after_midnight(url):
     response = requests.get(url)
     image = Image.open(BytesIO(response.content))
     image = np.array(image)
@@ -139,14 +127,6 @@ def get_menu_categories(driver):
     return [elm.text for elm in list_elements]
 
 
-def ungroup_categories(menu_items):
-    """Return menu_items reformatted into a single list of items"""
-    new_menu_items = []
-    for cat in menu_items:
-        new_menu_items += menu_items[cat]
-    return new_menu_items
-
-
 def main():
     driver = webdriver.Firefox()
     driver.get("https://www.ubereats.com/store/mcdonalds-463-mass-ave-cambridge/PiyOQ48sRteUFdtRnOvIBw")
@@ -154,15 +134,26 @@ def main():
     validate_address(driver)
     exit_second_dialog(driver)
 
-    menu_items = get_menu_items(driver)
-    for cat in menu_items:
-        print(menu_items[cat])
+    menu_categories = [
+        "Sweets & Treats",
+        "Condiments",
+        "Fries, Sides & More",
+        "McCafé",
+        "McCafé Bakery",
+        "Beverages",
+        "Individual Items",
+        "Homestyle Breakfasts",
+        "Snacks, Sides & More"
+    ]
 
-    menu_items = ungroup_categories(menu_items)
+    menu_items = get_menu_items(driver, menu_categories)
+    for item in menu_items:
+        print(item)
     random.shuffle(menu_items)
 
     rand_item = menu_items[0]
     print(rand_item["name"])
+    print(item_available_after_midnight(rand_item["img"]))
     scroll_to_element(driver, rand_item["element"])
     driver.execute_script("window.scrollBy(0, -134);")  # Uncover item from top navigation banner
     rand_item["element"].click()
@@ -174,7 +165,6 @@ if __name__ == '__main__':
 
 # PAGE LAYOUT AND THINGS TO CONSIDER
 
-# Availability after midnight
 # "Comes With"
     # -/+ buttons that may have value already selected (and may be at max value)
     # Checkboxes that may already be checked
@@ -189,11 +179,12 @@ if __name__ == '__main__':
     # Select sauce menu (-/+ buttons, max two/three sauce packages)
 # Large, medium, small options for most drinks
 
-# We'll need something that can be run once/intermittently to generate a semi-permanent list of menu items
-# and options for the randomizer. Then a separate script is run during purchase to check item availability
-    # This is over-complicated. We should actually just have the randomizer and web scraper work with each
-    # other during the randomization process (i.e. as the scraper looks at menu items/options/availability
-    # the randomizer makes purchasing decisions). Perhaps the web scraper can navigate the page in a random
-    # fashion, with each available item it stops at having some probability of being selected.
+# PROCEDURE
 
-# Major change - menu depends on time of day
+# Get user info from GUI
+# Scan page to get list of items and prices
+# Have randomizer process item list and select items
+#   For each item selected
+#       Scrape item options if not done so already
+#       Randomly select options
+# Pay for food (perhaps with verification that the cost is ok)
