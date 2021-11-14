@@ -1,6 +1,7 @@
 import random
 import datetime
 from typing import List
+import tkinter as tk
 
 import selenium.common.exceptions
 from selenium import webdriver
@@ -92,7 +93,7 @@ def get_current_item_settings(driver):
     return settings
 
 
-def main():
+def test_scraper():
     past_midnight = time_is_past_midnight()
 
     driver = webdriver.Firefox()
@@ -149,6 +150,23 @@ def main():
                 print("        what the fuck")
 
         exit_current_item(driver)
+
+
+def main():
+    window = tk.Tk()
+    window.title = "auto_mcd"
+    window.attributes("-fullscreen", True)
+
+    tk.Button(
+        text="Enter",
+        width=50,
+        height=5,
+        bg="black",
+        fg="white",
+        command=test_scraper
+    ).pack()
+
+    window.mainloop()
 
 
 if __name__ == '__main__':
