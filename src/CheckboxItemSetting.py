@@ -10,13 +10,12 @@ class CheckboxItemSetting(ItemSetting):
         # for div in potential_name_divs:
         #     if len(div.text) != 0:
         #         self.name = div.text
-        super().__init__(0)  # Can't determine if actually checked or not, will assume free cost
         self.element = element
-        self.scroll_container = scroll_container
+        super().__init__(scroll_container, 0)  # Can't determine if actually checked or not, will assume free cost
+        # TODO actually get checkbox cost
 
     def click(self):
-        DriverUtils.scroll_to_element(self.element)
-        DriverUtils.scroll_element_amount(self.scroll_container, -ITEM_DIALOG_BANNER_HEIGHT)
+        self.scroll_to_element(self.element)
         self.element.click()
 
     def set_value(self, value):

@@ -12,6 +12,7 @@ from DriverUtils import DriverUtils
 from MenuItem import MenuItem
 from NumericItemSetting import NumericItemSetting
 from CheckboxItemSetting import CheckboxItemSetting
+from RadioItemSetting import RadioItemSetting
 from SettingGroup import SettingGroup
 
 
@@ -79,19 +80,24 @@ def exit_current_item(driver):
     close_button = driver.find_element(By.XPATH, "//div[@role='dialog']//button[@aria-label='Close']")
     DriverUtils.scroll_to_element(close_button)
     close_button.click()
+    while True:
+        try:
+            close_button.click()
+        except (selenium.common.exceptions.NoSuchElementException,
+                selenium.common.exceptions.StaleElementReferenceException):
+            break
 
 
-def get_current_item_settings(driver):
+def set_current_item_settings(driver):
     """Note: must click item before getting settings"""
     scroll_container = driver.find_element(By.XPATH, "//div[@data-focus-lock-disabled]/div")
     group_expansion_buttons = driver.find_elements(By.XPATH, "//div[@role='dialog']//button[@aria-expanded]")
     setting_groups = [SettingGroup(button, scroll_container) for button in group_expansion_buttons]
-    settings = []
+    for i, setting_group in enumerate(setting_groups):
+        if i > 0:
+            setting_group.close()  # Close all groups to only focus on one at a time
     for setting_group in setting_groups:
-        setting_group.close()  # Close all groups to only focus on one at a time
-    for setting_group in setting_groups:
-        settings += setting_group.get_settings(driver)
-    return settings
+        setting_group.set_settings(driver)
 
 
 def test_scraper():
@@ -111,7 +117,7 @@ def test_scraper():
         # "McCafé",
         # "McCafé Bakery",
         # "Beverages",
-        "Individual Items",  # Just look at individual items for testing (most complicated)
+        "Individual Items",
         # "Homestyle Breakfasts",
         # "Snacks, Sides & More"
     ]
@@ -121,7 +127,7 @@ def test_scraper():
         print(f"{item.name}    ${item.price}    Limit: {item.limit}    Img: {item.img_url}")
     random.shuffle(menu_items)
 
-    for i in range(5):
+    for i in range(len(menu_items)):
         print()
 
         rand_item = menu_items[i]
@@ -140,15 +146,8 @@ def test_scraper():
             exit_current_item(driver)
             continue
 
-        print("Settings:")
-        settings = get_current_item_settings(driver)
-        for setting in settings:
-            if isinstance(setting, NumericItemSetting):
-                print(f"        Numeric    {setting.cost}")
-            elif isinstance(setting, CheckboxItemSetting):
-                print("        Checkbox")
-            else:
-                print("        what the fuck")
+        print("Choosing settings...")
+        set_current_item_settings(driver)
 
         exit_current_item(driver)
 
@@ -172,17 +171,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-# TODO Large, medium, small options for most drinks
-
-
-# PROCEDURE
-
-# Get user info from GUI
-# Scan page to get list of items and prices
-# Have randomizer process item list and select items
-#   For each item selected
-#       Scrape item options if not done so already
-#       Randomly select options
-# Pay for food (perhaps with verification that the cost is ok)
