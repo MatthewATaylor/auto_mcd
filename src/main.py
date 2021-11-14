@@ -10,9 +10,6 @@ from selenium.webdriver.common.keys import Keys
 
 from DriverUtils import DriverUtils
 from MenuItem import MenuItem
-from NumericItemSetting import NumericItemSetting
-from CheckboxItemSetting import CheckboxItemSetting
-from RadioItemSetting import RadioItemSetting
 from SettingGroup import SettingGroup
 
 
@@ -110,21 +107,26 @@ def test_scraper():
     validate_address(driver)
     exit_second_dialog(driver)
 
+    # TODO get McCafé to work
     menu_categories = [
-        # "Sweets & Treats",
-        # "Condiments",
-        # "Fries, Sides & More",
+        "Sweets & Treats",
+        "Condiments",
+        "Fries, Sides & More",
         # "McCafé",
-        # "McCafé Bakery",
-        # "Beverages",
+        "McCafé Bakery",
+        "Beverages",
         "Individual Items",
-        # "Homestyle Breakfasts",
-        # "Snacks, Sides & More"
+        "Homestyle Breakfasts",
+        "Snacks, Sides & More"
     ]
 
     menu_items: List[MenuItem] = get_menu_items(driver, menu_categories)
-    for item in menu_items:
-        print(f"{item.name}    ${item.price}    Limit: {item.limit}    Img: {item.img_url}")
+    for item in menu_items.copy():
+        # TODO get shakes to work
+        if "Shake" in item.name:
+            menu_items.remove(item)
+        else:
+            print(f"{item.name}    ${item.price}    Limit: {item.limit}    Img: {item.img_url}")
     random.shuffle(menu_items)
 
     for i in range(len(menu_items)):

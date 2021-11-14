@@ -11,16 +11,15 @@ class NumericItemSetting(ItemSetting):
         super().__init__(scroll_container, self.__get_cost())
 
     def __get_cost(self):
-        # TODO fix this
-        # parent_element = self.increment_element.find_element(By.XPATH, "./")
-        # potential_cost_divs = parent_element.find_elements(By.XPATH, ".//div[not(*)]")
-        # for div in potential_cost_divs:
-        #     if "$" in div.text:
-        #         cost_str = ""
-        #         for char in div.text:
-        #             if char.isdecimal() or char == ".":
-        #                 cost_str += char
-        #         return float(cost_str)
+        parent_element = self.increment_element.find_element(By.XPATH, "./parent::div/parent::div")
+        potential_cost_divs = parent_element.find_elements(By.XPATH, ".//div[not(*)]")
+        for div in potential_cost_divs:
+            if "$" in div.text:
+                cost_str = ""
+                for char in div.text:
+                    if char.isdecimal() or char == "." or char == "-":
+                        cost_str += char
+                return float(cost_str)
         return 0
 
     def set_value(self, value):
@@ -28,8 +27,8 @@ class NumericItemSetting(ItemSetting):
         self.scroll_to_element(self.increment_element)
         delta_value = value - self.default_value
         while delta_value > 0:
-            self.decrement_element.click()
-            delta_value += 1
-        while delta_value < 0:
             self.increment_element.click()
             delta_value -= 1
+        while delta_value < 0:
+            self.decrement_element.click()
+            delta_value += 1

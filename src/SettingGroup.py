@@ -39,21 +39,23 @@ class SettingGroup:
         numeric_settings = self.get_numeric_settings(driver)
         for numeric_setting in numeric_settings:
             print(f"    Numeric - ${numeric_setting.cost} - Default: {numeric_setting.default_value}")
-            numeric_setting.set_value(1)
+            numeric_setting.set_value(0)
 
         radio_settings = self.get_radio_settings(driver)
         for radio_setting in radio_settings:
             print(f"    Radio - ${radio_setting.cost}")
-            radio_setting.set_value(0)
+            radio_setting.set_value(1)
 
         self.close()
 
     def get_checkbox_settings(self, driver):
-        return [
-            CheckboxItemSetting(element, self.scroll_container) for element in driver.find_elements(
-                By.XPATH, "//div[@role='dialog']//input[@type='checkbox']"
-            )
-        ]
+        checkboxes = driver.find_elements(By.XPATH, "//div[@role='dialog']//input[@type='checkbox']")
+        checkbox_settings = []
+        for checkbox in checkboxes:
+            checkbox_name = checkbox.get_attribute("name")
+            label = driver.find_element(By.XPATH, f"//div[@role='dialog']//label[@for='{checkbox_name}']")
+            checkbox_settings.append(CheckboxItemSetting(label, self.scroll_container))
+        return checkbox_settings
 
     def get_numeric_settings(self, driver):
         numeric_settings = []
@@ -64,7 +66,7 @@ class SettingGroup:
             label_divs = increment_button.find_elements(By.XPATH, "./preceding-sibling::div")
             if len(label_divs) > 0:
                 default_value = int(label_divs[0].text)
-                decrement_button = label_divs[0].find_elements(
+                decrement_button = label_divs[0].find_element(
                     By.XPATH, "./preceding-sibling::button[@aria-label='Decrement']"
                 )
             numeric_settings.append(
@@ -76,11 +78,15 @@ class SettingGroup:
         radio_button_settings = []
         radio_buttons = driver.find_elements(By.XPATH, "//div[@role='dialog']//input[@type='radio']")
         while len(radio_buttons) > 0:
-            current_setting_buttons = []
+            current_setting_labels = []
             button_name = radio_buttons[0].get_attribute("name")
             for button in radio_buttons.copy():
                 if button.get_attribute("name") == button_name:
-                    current_setting_buttons.append(button)
+                    button_id = button.get_attribute("id")
+                    button_label = driver.find_element(
+                        By.XPATH, f"//div[@role='dialog']//label[@for='{button_id}']"
+                    )
+                    current_setting_labels.append(button_label)
                     radio_buttons.remove(button)
-            radio_button_settings.append(RadioItemSetting(current_setting_buttons, self.scroll_container))
+            radio_button_settings.append(RadioItemSetting(current_setting_labels, self.scroll_container))
         return radio_button_settings
