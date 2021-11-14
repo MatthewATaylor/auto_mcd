@@ -97,7 +97,7 @@ def set_current_item_settings(driver):
         setting_group.set_settings(driver)
 
 
-def test_scraper():
+def run_scraper():
     past_midnight = time_is_past_midnight()
 
     driver = webdriver.Firefox()
@@ -129,6 +129,14 @@ def test_scraper():
             print(f"{item.name}    ${item.price}    Limit: {item.limit}    Img: {item.img_url}")
     random.shuffle(menu_items)
 
+    # TODO integration with randomizer
+    # Set up randomizer's menu using menu_items list
+    # Have randomizer click on items to purchase and then run set_current_item_settings
+    # set_current_item_settings calls set_settings for every SettingGroup in the item
+    # Each SettingGroup's set_settings can have the randomizer call set_value for the different setting types
+    # While doing this, subtract from total budget using ItemSetting and MenuItem cost values
+
+    # Temp test
     for i in range(len(menu_items)):
         print()
 
@@ -141,7 +149,6 @@ def test_scraper():
             print("Time is after after midnight, skipping item")
             continue
 
-        # For each item selected by randomizer
         rand_item.click()
         if not current_item_is_available(driver):
             print("Item is unavailable")
@@ -155,6 +162,8 @@ def test_scraper():
 
 
 def main():
+    # TODO make a real GUI
+
     window = tk.Tk()
     window.title = "auto_mcd"
     # window.attributes("-fullscreen", True)
@@ -165,7 +174,7 @@ def main():
         height=5,
         bg="black",
         fg="white",
-        command=test_scraper
+        command=run_scraper
     ).pack()
 
     window.mainloop()
