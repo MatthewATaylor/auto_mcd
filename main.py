@@ -1,4 +1,7 @@
 import random
+import datetime
+from typing import List
+import time
 
 from PIL import Image
 import requests
@@ -8,6 +11,139 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 import numpy as np
+
+
+MAIN_BANNER_HEIGHT = 134
+ITEM_DIALOG_BANNER_HEIGHT = 64
+
+
+class DriverUtils:
+    driver = None
+
+    @classmethod
+    def set_driver(cls, new_driver):
+        cls.driver = new_driver
+
+    @classmethod
+    def scroll_to_element(cls, element):
+        try:
+            cls.driver.execute_script("arguments[0].scrollIntoView();", element)
+        except selenium.common.exceptions.JavascriptException:
+            print("NOTE: Unable to scroll to element")
+        print("Scrolling to element...")
+        time.sleep(2)
+
+    @classmethod
+    def scroll_amount(cls, amount):
+        cls.driver.execute_script(f"window.scrollBy(0, {amount});")
+        print("Scrolling up...")
+        time.sleep(2)
+
+
+class ItemSetting:
+    def __init__(self, cost):
+        self.cost = cost
+
+    def set_value(self, value):
+        pass
+
+
+class NumericItemSetting(ItemSetting):
+    def __init__(self, default_value, increment_element, decrement_element):
+        self.default_value = default_value
+        self.increment_element = increment_element
+        self.decrement_element = decrement_element  # May be None (when default_value is 0)
+        super().__init__(self.get_cost())
+
+    def get_cost(self):
+        parent_element = self.increment_element.find_element(By.XPATH, "./../../div")
+        potential_cost_divs = parent_element.find_elements(By.XPATH, ".//div[not(*)]")
+        for div in potential_cost_divs:
+            if "$" in div.text:
+                return float(div.text[1:])
+        return 0
+
+    def set_value(self, value):
+        """Where value is probably either 0 or 1"""
+        DriverUtils.scroll_to_element(self.increment_element)
+        DriverUtils.scroll_amount(-ITEM_DIALOG_BANNER_HEIGHT)
+        delta_value = value - self.default_value
+        while delta_value > 0:
+            self.decrement_element.click()
+            delta_value += 1
+        while delta_value < 0:
+            self.increment_element.click()
+            delta_value -= 1
+
+
+class CheckboxItemSetting(ItemSetting):
+    def __init__(self, element):
+        # Probably don't even need name
+        # potential_name_divs = element.find_element(By.XPATH, "./following-sibling::label//div[not(*)]")
+        # for div in potential_name_divs:
+        #     if len(div.text) != 0:
+        #         self.name = div.text
+        super().__init__(0)  # Can't determine if actually checked or not, will assume free cost
+        self.element = element
+
+    def click(self):
+        DriverUtils.scroll_to_element(self.element)
+        DriverUtils.scroll_amount(-ITEM_DIALOG_BANNER_HEIGHT)
+        self.element.click()
+
+    def set_value(self, value):
+        """Change value of checkbox if value is 1, otherwise keep default"""
+        if value:
+            self.click()
+
+
+class SettingGroup:
+    def __init__(self, expansion_button):
+        self.expansion_button = expansion_button
+        self.is_opened = expansion_button.get_attribute("aria-expanded") == "true"
+        self.settings: List[ItemSetting] = []
+
+    def open(self):
+        DriverUtils.scroll_to_element(self.expansion_button)
+        DriverUtils.scroll_amount(-ITEM_DIALOG_BANNER_HEIGHT)
+        if not self.is_opened:
+            self.expansion_button.click()
+            self.is_opened = True
+
+    def close(self):
+        DriverUtils.scroll_to_element(self.expansion_button)
+        DriverUtils.scroll_amount(-ITEM_DIALOG_BANNER_HEIGHT)
+        if self.is_opened:
+            self.expansion_button.click()
+            self.is_opened = False
+
+    def get_settings(self, driver):
+        """This should only be run once all groups have been closed"""
+        self.open()
+
+        checkbox_settings = [
+            CheckboxItemSetting(element) for element in driver.find_elements(
+                By.XPATH, "//div[@role='dialog']//input[@type='checkbox']"
+            )
+        ]
+        numerical_settings = []
+
+        increment_buttons = driver.find_elements(By.XPATH, "//div[@role='dialog']//button[@aria-label='Increment']")
+        for increment_button in increment_buttons:
+            decrement_button = None
+            default_value = 0
+            label_divs = increment_button.find_elements(By.XPATH, "./preceding-sibling::div")
+            if len(label_divs) > 0:
+                default_value = int(label_divs[0].text)
+                decrement_button = label_divs[0].find_elements(
+                    By.XPATH, "./preceding-sibling::button[@aria-label='Decrement']"
+                )
+            numerical_settings.append(NumericItemSetting(default_value, increment_button, decrement_button))
+
+        self.settings += checkbox_settings
+        self.settings += numerical_settings
+
+        self.close()
 
 
 def str_is_num(s):
@@ -50,13 +186,6 @@ def exit_second_dialog(driver):
         close_buttons[0].click()
 
 
-def scroll_to_element(driver, element):
-    try:
-        driver.execute_script("arguments[0].scrollIntoView();", element)
-    except selenium.common.exceptions.JavascriptException:
-        print("NOTE: Unable to scroll to element")
-
-
 def scan_item_info(menu_item, all_item_info):
     """Get info about the item from the all_item_info divs, and add it to the menu_item dict"""
     try:
@@ -96,7 +225,7 @@ def get_menu_items_from_category(driver, category):
             category_item_lists = list_element.find_elements(By.XPATH, "./ul/li")
             for category_item_list in category_item_lists:
                 menu_item = dict()
-                scroll_to_element(driver, category_item_list)  # Scroll to load image
+                DriverUtils.scroll_to_element(category_item_list)  # Scroll to load image
                 all_item_info = category_item_list.find_elements(By.XPATH, ".//div[not(*)]")
                 scan_item_info(menu_item, all_item_info)
                 if menu_item:  # Info was added by scan_item_info
@@ -113,6 +242,8 @@ def get_menu_items(driver, menu_categories):
 
 
 def item_available_after_midnight(url):
+    if url == "":
+        return True
     response = requests.get(url)
     image = Image.open(BytesIO(response.content))
     image = np.array(image)
@@ -121,29 +252,67 @@ def item_available_after_midnight(url):
     return not np.all(np.abs(average_color - avg_banner_color) <= 1e1)
 
 
+def time_is_past_midnight():
+    """In other words, time is between midnight and 4:30 am (end of dinner)"""
+    current_time = datetime.datetime.now().time()
+    midnight = datetime.time(0, 0, 0)
+    dinner_end_time = datetime.time(4, 30, 0)
+    return midnight < current_time < dinner_end_time
+
+
 def get_menu_categories(driver):
     # Hmm "ex" may be a randomized class name
     list_elements = driver.find_elements(By.CLASS_NAME, 'ex')
     return [elm.text for elm in list_elements]
 
 
+def click_item(item):
+    DriverUtils.scroll_to_element(item["element"])
+    DriverUtils.scroll_amount(-MAIN_BANNER_HEIGHT)  # Uncover item from top navigation banner
+    item["element"].click()
+
+
+def current_item_is_available(driver):
+    """Note: must click item before performing this check"""
+    return len(driver.find_elements(By.XPATH, "//button/div[text()='Unavailable']")) == 0
+
+
+def exit_current_item(driver):
+    close_button = driver.find_element(By.XPATH, "//div[@role='dialog']//button[@aria-label='Close']")
+    DriverUtils.scroll_to_element(close_button)
+    close_button.click()
+
+
+def get_current_setting_groups(driver):
+    group_expander_buttons = driver.find_elements(By.XPATH, "//div[@role='dialog']//button[@aria-expanded]")
+    setting_groups = [SettingGroup(button) for button in group_expander_buttons]
+    for setting_group in setting_groups:
+        setting_group.close()
+    for setting_group in setting_groups:
+        setting_group.get_settings(driver)
+    return setting_groups
+
+
 def main():
+    past_midnight = time_is_past_midnight()
+
     driver = webdriver.Firefox()
+    DriverUtils.set_driver(driver)
     driver.get("https://www.ubereats.com/store/mcdonalds-463-mass-ave-cambridge/PiyOQ48sRteUFdtRnOvIBw")
 
     validate_address(driver)
     exit_second_dialog(driver)
 
     menu_categories = [
-        "Sweets & Treats",
-        "Condiments",
-        "Fries, Sides & More",
-        "McCafé",
-        "McCafé Bakery",
-        "Beverages",
-        "Individual Items",
-        "Homestyle Breakfasts",
-        "Snacks, Sides & More"
+        #"Sweets & Treats",
+        #"Condiments",
+        #"Fries, Sides & More",
+        #"McCafé",
+        #"McCafé Bakery",
+        #"Beverages",
+        "Individual Items",  # Just look at individual items for testing (most complicated)
+        #"Homestyle Breakfasts",
+        #"Snacks, Sides & More"
     ]
 
     menu_items = get_menu_items(driver, menu_categories)
@@ -151,12 +320,39 @@ def main():
         print(item)
     random.shuffle(menu_items)
 
-    rand_item = menu_items[0]
-    print(rand_item["name"])
-    print(item_available_after_midnight(rand_item["img"]))
-    scroll_to_element(driver, rand_item["element"])
-    driver.execute_script("window.scrollBy(0, -134);")  # Uncover item from top navigation banner
-    rand_item["element"].click()
+    for i in range(5):
+        print()
+
+        rand_item = menu_items[i]
+        print(rand_item["name"])
+
+        available_after_midnight = item_available_after_midnight(rand_item["img"])
+        print(f"Item is available after midnight: {available_after_midnight}")
+        if not available_after_midnight and past_midnight:
+            print("Time is after after midnight, skipping item")
+            continue
+
+        # For each item selected by randomizer
+        DriverUtils.scroll_to_element(rand_item["element"])
+        click_item(rand_item)
+        if not current_item_is_available(driver):
+            print("Item is unavailable")
+            exit_current_item(driver)
+            continue
+
+        setting_groups = get_current_setting_groups(driver)
+        for group in setting_groups:
+            print(f"    Opened: {group.is_opened}")
+            print("    Settings:")
+            for setting in group.settings:
+                if isinstance(setting, NumericItemSetting):
+                    print(f"        Numeric    {setting.cost}")
+                elif isinstance(setting, CheckboxItemSetting):
+                    print("        Checkbox")
+                else:
+                    print("        ????")
+
+        exit_current_item(driver)
 
 
 if __name__ == '__main__':
