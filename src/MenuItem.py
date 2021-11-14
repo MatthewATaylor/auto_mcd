@@ -58,10 +58,10 @@ class MenuItem:
 
     def is_available_after_midnight(self):
         if self.img_url is None:
-            return True
+            return False
         response = requests.get(self.img_url)
         image = Image.open(BytesIO(response.content))
         image = np.array(image)
         avg_banner_color = np.array([244, 211, 130])
         average_color = np.mean(np.mean(image[:9, :, :], axis=0), axis=0)
-        return not np.all(np.abs(average_color - avg_banner_color) <= 1e1)
+        return not np.all(np.abs(average_color - avg_banner_color) <= 30)
