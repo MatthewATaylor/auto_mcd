@@ -18,3 +18,7 @@ class DriverUtils:
     @classmethod
     def scroll_amount(cls, amount):
         cls.driver.execute_script(f"window.scrollBy(0, {amount});")
+
+    @classmethod
+    def scroll_element_amount(cls, element, amount):
+        cls.driver.execute_script(f"arguments[0].scrollBy(0, {amount});", element)

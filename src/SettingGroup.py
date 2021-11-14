@@ -7,21 +7,22 @@ from selenium.webdriver.common.by import By
 
 
 class SettingGroup:
-    def __init__(self, expansion_button):
+    def __init__(self, expansion_button, scroll_container):
         self.expansion_button = expansion_button
+        self.scroll_container = scroll_container
         self.is_opened = expansion_button.get_attribute("aria-expanded") == "true"
 
     def open(self):
-        DriverUtils.scroll_to_element(self.expansion_button)
-        DriverUtils.scroll_amount(-ITEM_DIALOG_BANNER_HEIGHT)
         if not self.is_opened:
+            DriverUtils.scroll_to_element(self.expansion_button)
+            DriverUtils.scroll_element_amount(self.scroll_container, -ITEM_DIALOG_BANNER_HEIGHT)
             self.expansion_button.click()
             self.is_opened = True
 
     def close(self):
-        DriverUtils.scroll_to_element(self.expansion_button)
-        DriverUtils.scroll_amount(-ITEM_DIALOG_BANNER_HEIGHT)
         if self.is_opened:
+            DriverUtils.scroll_to_element(self.expansion_button)
+            DriverUtils.scroll_element_amount(self.scroll_container, -ITEM_DIALOG_BANNER_HEIGHT)
             self.expansion_button.click()
             self.is_opened = False
 
@@ -30,7 +31,7 @@ class SettingGroup:
         self.open()
 
         checkbox_settings = [
-            CheckboxItemSetting(element) for element in driver.find_elements(
+            CheckboxItemSetting(element, self.scroll_container) for element in driver.find_elements(
                 By.XPATH, "//div[@role='dialog']//input[@type='checkbox']"
             )
         ]
@@ -46,7 +47,9 @@ class SettingGroup:
                 decrement_button = label_divs[0].find_elements(
                     By.XPATH, "./preceding-sibling::button[@aria-label='Decrement']"
                 )
-            numerical_settings.append(NumericItemSetting(default_value, increment_button, decrement_button))
+            numerical_settings.append(
+                NumericItemSetting(default_value, increment_button, decrement_button, self.scroll_container)
+            )
 
         self.close()
 

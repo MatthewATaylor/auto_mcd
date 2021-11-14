@@ -83,8 +83,9 @@ def exit_current_item(driver):
 
 def get_current_item_settings(driver):
     """Note: must click item before getting settings"""
-    group_expander_buttons = driver.find_elements(By.XPATH, "//div[@role='dialog']//button[@aria-expanded]")
-    setting_groups = [SettingGroup(button) for button in group_expander_buttons]
+    scroll_container = driver.find_element(By.XPATH, "//div[@data-focus-lock-disabled]/div")
+    group_expansion_buttons = driver.find_elements(By.XPATH, "//div[@role='dialog']//button[@aria-expanded]")
+    setting_groups = [SettingGroup(button, scroll_container) for button in group_expansion_buttons]
     settings = []
     for setting_group in setting_groups:
         setting_group.close()  # Close all groups to only focus on one at a time
@@ -155,7 +156,7 @@ def test_scraper():
 def main():
     window = tk.Tk()
     window.title = "auto_mcd"
-    window.attributes("-fullscreen", True)
+    # window.attributes("-fullscreen", True)
 
     tk.Button(
         text="Enter",
