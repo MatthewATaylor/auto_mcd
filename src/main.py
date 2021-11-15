@@ -3,14 +3,11 @@ import datetime
 from typing import List
 import tkinter as tk
 
-import selenium.common.exceptions
 from selenium import webdriver
-from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 
-from DriverUtils import DriverUtils
 from MenuItem import MenuItem
-from SettingGroup import SettingGroup
+from current_item_processing import *
 
 
 def validate_address(driver):
@@ -21,8 +18,7 @@ def validate_address(driver):
         try:
             address_input = driver.find_element(By.ID, "location-typeahead-location-manager-input")
             address_input.send_keys(Keys.ENTER)
-        except (selenium.common.exceptions.NoSuchElementException,
-                selenium.common.exceptions.StaleElementReferenceException):
+        except (NoSuchElementException, StaleElementReferenceException):
             break
 
 
@@ -66,35 +62,6 @@ def time_is_past_midnight():
     midnight = datetime.time(0, 0, 0)
     dinner_end_time = datetime.time(4, 30, 0)
     return midnight < current_time < dinner_end_time
-
-
-def current_item_is_available(driver):
-    """Note: must click item before performing this check"""
-    return len(driver.find_elements(By.XPATH, "//button/div[text()='Unavailable']")) == 0
-
-
-def exit_current_item(driver):
-    close_button = driver.find_element(By.XPATH, "//div[@role='dialog']//button[@aria-label='Close']")
-    DriverUtils.scroll_to_element(close_button)
-    close_button.click()
-    while True:
-        try:
-            close_button.click()
-        except (selenium.common.exceptions.NoSuchElementException,
-                selenium.common.exceptions.StaleElementReferenceException):
-            break
-
-
-def set_current_item_settings(driver):
-    """Note: must click item before getting settings"""
-    scroll_container = driver.find_element(By.XPATH, "//div[@data-focus-lock-disabled]/div")
-    group_expansion_buttons = driver.find_elements(By.XPATH, "//div[@role='dialog']//button[@aria-expanded]")
-    setting_groups = [SettingGroup(button, scroll_container) for button in group_expansion_buttons]
-    for i, setting_group in enumerate(setting_groups):
-        if i > 0:
-            setting_group.close()  # Close all groups to only focus on one at a time
-    for setting_group in setting_groups:
-        setting_group.set_settings(driver)
 
 
 def run_scraper():
