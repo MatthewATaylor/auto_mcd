@@ -1,5 +1,6 @@
 from io import BytesIO
 
+import PIL.Image
 import numpy as np
 import requests
 from PIL import Image
@@ -61,7 +62,8 @@ class MenuItem:
             return False
         response = requests.get(self.img_url)
         image = Image.open(BytesIO(response.content))
-        image = np.array(image)
+        image_np = np.array(image)
+        image.close()
         avg_banner_color = np.array([244, 211, 130])
-        average_color = np.mean(np.mean(image[:9, :, :], axis=0), axis=0)
+        average_color = np.mean(np.mean(image_np[:9, :, :], axis=0), axis=0)
         return not np.all(np.abs(average_color - avg_banner_color) <= 30)

@@ -12,6 +12,7 @@ class SettingGroup:
         self.expansion_button = expansion_button
         self.scroll_container = scroll_container
         self.is_opened = expansion_button.get_attribute("aria-expanded") == "true"
+        self.min_count = self.get_min_count()
 
     def open(self):
         if not self.is_opened:
@@ -31,6 +32,8 @@ class SettingGroup:
         """This should only be run once all groups have been closed"""
         self.open()
 
+        print(f"Min Count: {self.min_count}")
+
         checkbox_settings = self.get_checkbox_settings(driver)
         for checkbox_setting in checkbox_settings:
             print(f"    Checkbox - ${checkbox_setting.cost}")
@@ -39,12 +42,12 @@ class SettingGroup:
         numeric_settings = self.get_numeric_settings(driver)
         for numeric_setting in numeric_settings:
             print(f"    Numeric - ${numeric_setting.cost} - Default: {numeric_setting.default_value}")
-            numeric_setting.set_value(0)
+            numeric_setting.set_value(1)
 
         radio_settings = self.get_radio_settings(driver)
         for radio_setting in radio_settings:
             print(f"    Radio - ${radio_setting.cost}")
-            radio_setting.set_value(1)
+            radio_setting.set_value(0)
 
         self.close()
 
@@ -90,3 +93,14 @@ class SettingGroup:
                     radio_buttons.remove(button)
             radio_button_settings.append(RadioItemSetting(current_setting_labels, self.scroll_container))
         return radio_button_settings
+
+    def get_min_count(self):
+        parent_element = self.expansion_button.find_element(By.XPATH, "./parent::div/parent::div")
+        required = len(parent_element.find_elements(By.XPATH, ".//span[text()='Required']")) > 0
+        if not required:
+            return 0
+        potential_min_spans = parent_element.find_elements(By.XPATH, ".//span")
+        for span in potential_min_spans:
+            if "Choose " in span.text:
+                return int(span.text[7:])
+        return 1  # Required but no amount specified

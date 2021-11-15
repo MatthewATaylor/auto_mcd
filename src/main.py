@@ -5,6 +5,7 @@ import tkinter as tk
 
 from selenium import webdriver
 from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import ElementClickInterceptedException
 
 from MenuItem import MenuItem
 from current_item_processing import *
@@ -116,16 +117,24 @@ def run_scraper():
             print("Time is after after midnight, skipping item")
             continue
 
-        rand_item.click()
+        # Need to wait for previous item dialog to close
+        while True:
+            try:
+                rand_item.click()
+                break
+            except ElementClickInterceptedException:
+                pass
         if not current_item_is_available(driver):
             print("Item is unavailable")
             exit_current_item(driver)
             continue
 
+        set_current_item_quantity(driver, 3)
+
         print("Choosing settings...")
         set_current_item_settings(driver)
 
-        exit_current_item(driver)
+        add_current_item_to_cart(driver)
 
 
 def main():
